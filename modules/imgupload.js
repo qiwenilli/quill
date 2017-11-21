@@ -5,9 +5,7 @@ import Axios from 'axios';
 import {Buffer} from 'buffer';
 import Blob from 'blob';
 // import Delta from 'quill-delta';
-
-// require('buffer').Buffer
-const con = console;
+// const con = console;
 
 let debug = logger('quill:imgupload');
 
@@ -22,10 +20,10 @@ class Imgupload extends Module {
         debug.log(options);
 
         let timer = null;
-        this.quill.on(Quill.events.TEXT_CHANGE, (delta, oldDelta, source) => {
+        this.quill.on(Quill.events.TEXT_CHANGE, (delta) => {
             clearTimeout(timer);
             timer = setTimeout(() => {
-                this.upload(delta, oldDelta, source);
+                this.upload(delta);
                 timer = null;
             }, this.options.interval);
         });
@@ -34,7 +32,9 @@ class Imgupload extends Module {
         debug.log("upload");
     }
 
-    upload(delta, oldDelta, source) {
+    upload(delta) {
+
+        debug.log(delta);
 
         debug.log("|----------------------------------------------|");
         debug.log("|       author : qiwen<34214399@qq.com>        |");
@@ -48,8 +48,6 @@ class Imgupload extends Module {
         debug.log("|----------------------------------------------|");
 
         debug.log(this.options);
-
-        con.log(">>>", delta, oldDelta, source);
 
         const quill = this.quill;
 
@@ -140,21 +138,24 @@ class Imgupload extends Module {
             _file = this.options.filename;
         }
 
-        let binaryData = new Blob(new Buffer(base64String), {
-            type: "image/png"
-        });
+        // var base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
+        // // var dataBuffer = new Buffer(base64Data, 'base64');
+        // let dataBuffer = new Blob(base64Data, {
+        //     type: "image/png"
+        // });
+
+        let dataBuffer = this.base64ToBlob(base64String);
 
         let formData = new FormData();
-        formData.append(_file, binaryData, _filename);
+        formData.append(_file, dataBuffer, _filename);
 
         let opt = this.options;
         Object.keys(opt.postdata).forEach((k) => {
             formData.append(k, new Buffer(opt.postdata[k].toString()));
-            con.log(k, "====", opt.postdata[k]);
         });
 
         debug.log("post form");
-        con.log(formData);
+        debug.log(formData);
 
         let config = {
             headers: {
@@ -167,14 +168,14 @@ class Imgupload extends Module {
         Axios.post(this.options.url, formData, config)
             .then(function(response) {
 
-                con.log(response);
+                debug.log(response);
 
                 let img = opt.callfun(response);
 
                 _update(quill, img, _filename);
             }).catch(function(err) {
 
-                con.log(err);
+                debug.log(err);
 
                 let img = opt.callfun(err);
 
@@ -185,8 +186,6 @@ class Imgupload extends Module {
     update(quill, img, _filename){
 
         let q = quill.getContents();
-
-        con.log(q, img, _filename);
 
         let _modify = false;
         [].forEach.call(q.ops, (o, i) => {
@@ -202,6 +201,21 @@ class Imgupload extends Module {
             quill.setContents(q);
         }
     }
+
+    base64ToBlob(base64Data) {
+        var bytes = atob(base64Data.split(',')[1]);
+
+        var ab = new ArrayBuffer(bytes.length);
+        var ia = new Uint8Array(ab);
+        for (var i = 0; i < bytes.length; i++) {
+            ia[i] = bytes.charCodeAt(i);
+        }
+
+        return new Blob([ab], {
+            type: 'image/png'
+        });
+    }
+
 }
 
 export {
